@@ -82,6 +82,9 @@ async function openWindow() {
     
   }
 }
+function cleanitem(){
+  items.value=[];
+}
 
 </script>
 
@@ -104,6 +107,7 @@ async function openWindow() {
          <button @click="save()">save</button>
          <button @click="showSettings =false">exit</button>
          <button @click="openWindow()">开启标题栏</button>
+         <button @click="cleanitem()">清理字幕</button>
         </div>
     <div class="bar">
     <button @click="openSettings" class="settings_btn">⚙</button>
