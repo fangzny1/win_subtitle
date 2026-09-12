@@ -2,7 +2,8 @@
 import { nextTick, ref } from 'vue';
 import { listen } from "@tauri-apps/api/event"
 import { invoke } from "@tauri-apps/api/core"
-
+import { save } from '@tauri-apps/plugin-dialog'
+import { writeTextFile } from '@tauri-apps/plugin-fs';
 interface Row {
   id: number;
   text: string;
@@ -61,7 +62,7 @@ const toggle =async ()=>{
     busy.value =false
   }
 }
-async function save() {
+async function save_c() {
    try{await invoke("save_config",{cfg:from.value});
    showSettings.value=false}
    catch(e){
@@ -70,10 +71,28 @@ async function save() {
    }
 
 } 
+async function exportText() {
+  try {
+      const path =await save({filters: [{
+    name: 'export',
+    extensions: ['txt']
+  }]})
+  if(!path)return;
+const content = items.value.map((it,t )=> `${t+1}. ${it.text}\n${it.trans}`).join("\n\n");
+  await writeTextFile(path,content)
+  } catch (error) {
+    console.log(error);
+    
+  }
+
+}
+
+
 const show =ref(false)
+
 async function openWindow() {
   try {
-    
+   
     await invoke("set_decorations",{show:!show.value})
     show.value= !show.value
     
@@ -98,18 +117,23 @@ function cleanitem(){
       </div>
     </div >
    <div v-if="showSettings" class="settings">
-         <input v-model="from.ai_api_base">
-      <input v-model="from.ai_model" />
-      <input v-model="from.ai_api_key">
-      <input v-model="from.target_lang">
-      <input v-model.number="from.vad_max_speech_ms">
-      <input v-model.number="from.vad_slience_ms">
-         <button @click="save()">save</button>
-         <button @click="showSettings =false">exit</button>
-         <button @click="openWindow()">开启标题栏</button>
-         <button @click="cleanitem()">清理字幕</button>
+    <div class="settings-main">
+     <label class="label-settings">API 端点    <input v-model="from.ai_api_base" class="input-settings"></label>
+     <label class="label-settings">模型 ID<input v-model="from.ai_model" class="input-settings"/></label> 
+     <label class="label-settings" >API Key <input v-model="from.ai_api_key" type="password" class="input-settings"></label>
+    <label class="label-settings">目标语言<input v-model="from.target_lang"class="input-settings"></label> 
+     <label class="label-settings">最大切分时长<input v-model.number="from.vad_max_speech_ms"class="input-settings">ms</label>
+    <label class="label-settings">静音时超时切分时长<input v-model.number="from.vad_slience_ms"class="input-settings">ms</label> 
+    </div>
+          <div class="list-button">
+     <button class="button-settings" @click="save_c()">save</button>
+         <button class="button-settings" @click="showSettings =false">exit</button>
+         <button class="button-settings" @click="openWindow()">{{ show? "关闭标题栏":"开启标题栏" }}</button>
+         <button class="button-settings" @click="cleanitem()">清理字幕</button>
+         <button class="button-settings" @click="exportText()">导出字幕</button>
+         </div>
         </div>
-    <div class="bar">
+    <div class="bar" :class="{blur:showSettings}">
     <button @click="openSettings" class="settings_btn">⚙</button>
     <button @click="toggle" class="btn" :disabled="busy" :class="{stop: running}">{{ running? "stop":"start" }}</button>
     </div>
@@ -118,6 +142,45 @@ function cleanitem(){
 
 <style>
 html, body { margin: 0; }
+.list-button{
+  display: flex;
+  padding: 0px 15px;
+  gap: 15px;
+  justify-content: center;
+overflow: visible;
+
+  
+}
+.button-settings{
+  color: white;
+  padding: 5px;
+  width: 90px;
+  background-color: #5eff006c;
+  outline: none;
+  box-shadow:  0 0 8px rgba(89, 233, 22, .8);
+  border-radius: 30px;
+  
+}
+.label-settings{
+  padding: 0px 20px;
+}
+.input-settings{
+  background-color: rgba(89, 233, 22, 0.645);
+  border-radius: 999px;
+  color: white;
+  box-shadow:  0 0 8px rgba(89, 233, 22, .8);
+  padding: 8px 10px;
+  backdrop-filter: blur(13px);
+  transition: border-color .18s,box-shadow .18s;
+  
+  margin:15px 15px;
+}
+.input-settings:focus{
+  outline: none;
+  border-color:  rgba(11, 226, 58, 0.9);
+ box-shadow:  0 0 8px rgba(89, 233, 22, .18);
+
+}
 .container {
   background: rgba(0, 0, 0, 0.6);
   color: #fff;
@@ -132,6 +195,9 @@ html, body { margin: 0; }
 }
 .list.blur{
   filter: blur(3px);
+}
+.bar.blur{
+   filter: blur(3px);
 }
 .hint { color: #888; }
 .row { margin-bottom: 8px; }
@@ -150,14 +216,26 @@ html, body { margin: 0; }
 .settings{
    position: fixed;
    inset: 0;
+   gap: 8px;
    background: rgba(0,0,0,.7);
+   z-index: 10;
+ 
+}
+.settings-main{
+ display: flex;
+   flex-direction: column;
+   align-items: center;
+     max-height: 80vh;
+    
+  overflow-y: auto;
 }
 .settings_btn{
   margin-left: 20px;
   width: 40px;
   border-radius: 999px;
-  background-color: rgba(255, 255, 255, 0.644);
+  background-color: rgba(255, 255, 255, 0.308);
   backdrop-filter: blur(12px);
+  
 }
 .list::-webkit-scrollbar{
   width: 6px;

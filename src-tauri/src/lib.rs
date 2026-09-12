@@ -13,10 +13,15 @@ use tokio::sync::oneshot;
 use wasapi::{initialize_mta, DeviceEnumerator, Direction};
 struct AppState(Mutex<Option<oneshot::Sender<()>>>);
 
+
+
+
+
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
+
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 struct Config {
@@ -213,15 +218,12 @@ fn start_loopback(window: Window, state: tauri::State<'_, AppState>) -> Result<(
                 if vad.is_speech() {
                     if speech_start.is_none() {
                         speech_start = Some(Instant::now());
-                    } else if speech_start.unwrap().elapsed() >=max_speech {
+                    } else if speech_start.unwrap().elapsed() >= max_speech {
                         vad.flush();
                         speech_start = None;
-                    } 
-                    
-                }
-                else {
-                        speech_start = None;
-                    
+                    }
+                } else {
+                    speech_start = None;
                 }
                 while !vad.is_empty() {
                     let seg = vad.front();
@@ -289,6 +291,8 @@ pub fn run() {
     tauri::Builder::default()
         .manage(AppState(Mutex::new(None)))
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .invoke_handler(tauri::generate_handler![
             greet,
             start_loopback,
