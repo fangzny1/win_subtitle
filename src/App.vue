@@ -108,7 +108,9 @@ function cleanitem(){
 </script>
 
 <template>
-  <div data-tauri-drag-region class="container">
+  <div  class="container">
+
+      <div class="dragbar" data-tauri-drag-region></div>
     <div ref="listEl" class="list" :class="{blur:showSettings}">
       <div v-if="items.length === 0" class="hint">等待字幕… 按 Start 开始</div>
       <div v-for="it in items" :key="it.id" class="row">
@@ -118,31 +120,47 @@ function cleanitem(){
     </div >
    <div v-if="showSettings" class="settings">
     <div class="settings-main">
-     <label class="label-settings">API 端点    <input v-model="from.ai_api_base" class="input-settings"></label>
-     <label class="label-settings">模型 ID<input v-model="from.ai_model" class="input-settings"/></label> 
-     <label class="label-settings" >API Key <input v-model="from.ai_api_key" type="password" class="input-settings"></label>
-    <label class="label-settings">目标语言<input v-model="from.target_lang"class="input-settings"></label> 
-     <label class="label-settings">最大切分时长<input v-model.number="from.vad_max_speech_ms"class="input-settings">ms</label>
-    <label class="label-settings">静音时超时切分时长<input v-model.number="from.vad_slience_ms"class="input-settings">ms</label> 
+      
+     <label class="label-settings">API 端点    <el-input  v-model="from.ai_api_base" ></el-input></label>
+     <label class="label-settings">模型 ID<el-input v-model="from.ai_model" /></label> 
+     <label class="label-settings" >API Key <el-input show-password="true" v-model="from.ai_api_key" type="password" /></label>
+    <label class="label-settings">目标语言<el-input v-model="from.target_lang"/></label> 
+     <label class="label-settings">最大切分时长<el-input v-model.number="from.vad_max_speech_ms"><template #append>ms</template></el-input></label>
+    <label class="label-settings">静音时超时切分时长<el-input v-model.number="from.vad_slience_ms"><template #append>ms</template></el-input></label> 
     </div>
           <div class="list-button">
-     <button class="button-settings" @click="save_c()">save</button>
-         <button class="button-settings" @click="showSettings =false">exit</button>
-         <button class="button-settings" @click="openWindow()">{{ show? "关闭标题栏":"开启标题栏" }}</button>
-         <button class="button-settings" @click="cleanitem()">清理字幕</button>
-         <button class="button-settings" @click="exportText()">导出字幕</button>
+               <el-button round @click="save_c()">save</el-button>
+              <el-button round  @click="showSettings =false">exit</el-button>
+              <el-button round @click="openWindow()">{{ show? "关闭标题栏":"开启标题栏" }}</el-button>
+         <el-button round  @click="cleanitem()">清理字幕</el-button>
+       <el-button round @click="exportText()">导出字幕</el-button>
+      
+        
          </div>
         </div>
     <div class="bar" :class="{blur:showSettings}">
-    <button @click="openSettings" class="settings_btn">⚙</button>
+        <el-button  @click="openSettings" circle >⚙</el-button>
     <button @click="toggle" class="btn" :disabled="busy" :class="{stop: running}">{{ running? "stop":"start" }}</button>
     </div>
   </div>
 </template>
 
 <style>
+.bar .el-button{
+  margin-left: 10px;
+  background-color: #ffffff10;
+  border: none;
+}
+.bar .el-button:hover{
+  background-color: #08080852;
+  color: #59e916;
+}
+
+
+.dragbar { height: 22px; flex-shrink: 0; cursor: move; }
 html, body { margin: 0; }
 .list-button{
+  margin-top: 13px;
   display: flex;
   padding: 0px 15px;
   gap: 15px;
@@ -151,36 +169,33 @@ overflow: visible;
 
   
 }
-.button-settings{
-  color: white;
-  padding: 5px;
-  width: 90px;
-  background-color: #5eff006c;
-  outline: none;
+.list-button .el-button{
+  background-color: #09ff0062;
+  color: rgba(255, 255, 255, 0.932);
   box-shadow:  0 0 8px rgba(89, 233, 22, .8);
-  border-radius: 30px;
-  
 }
-.label-settings{
-  padding: 0px 20px;
-}
-.input-settings{
-  background-color: rgba(89, 233, 22, 0.645);
-  border-radius: 999px;
+.list-button .el-button:hover{
+  background-color: #11111162;
+  backdrop-filter: blur(12px);
+  box-shadow:  0 0 10px rgb(89, 233, 22);
   color: white;
-  box-shadow:  0 0 8px rgba(89, 233, 22, .8);
-  padding: 8px 10px;
-  backdrop-filter: blur(13px);
-  transition: border-color .18s,box-shadow .18s;
-  
-  margin:15px 15px;
 }
-.input-settings:focus{
-  outline: none;
-  border-color:  rgba(11, 226, 58, 0.9);
- box-shadow:  0 0 8px rgba(89, 233, 22, .18);
+.settings .el-input-group__append {
+  background: transparent;
+  color: rgba(255, 255, 255, .6);
+}
 
+
+.label-settings{
+  
+  padding: 0px 20px;
+  display: flex;
+  flex-direction: column;
+   margin-bottom: 10px;
+  gap: 4px  ;
 }
+
+
 .container {
   background: rgba(0, 0, 0, 0.6);
   color: #fff;
@@ -213,13 +228,22 @@ overflow: visible;
   backdrop-filter: blur(10px);
   
 }
-.settings{
+.settings .el-input {
+ --el-input-bg-color: rgba(255, 255, 255, .08);
+  --el-input-text-color: #fff;
+  --el-input-border-color: rgba(255, 255, 255, .2);
+  --el-input-hover-border-color: rgba(255, 255, 255, .45);
+  --el-input-focus-border-color: #59e916;  /* 对焦时用你的荧光绿 */
+  --el-input-placeholder-color: rgba(255, 255, 255, .35);
+}
+.settings {
    position: fixed;
    inset: 0;
    gap: 8px;
    background: rgba(0,0,0,.7);
    z-index: 10;
  
+
 }
 .settings-main{
  display: flex;
@@ -229,14 +253,7 @@ overflow: visible;
     
   overflow-y: auto;
 }
-.settings_btn{
-  margin-left: 20px;
-  width: 40px;
-  border-radius: 999px;
-  background-color: rgba(255, 255, 255, 0.308);
-  backdrop-filter: blur(12px);
-  
-}
+
 .list::-webkit-scrollbar{
   width: 6px;
 }
