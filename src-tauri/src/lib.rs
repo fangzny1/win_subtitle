@@ -3,7 +3,7 @@ use serde_json::json;
 use sherpa_rs::sense_voice::{SenseVoiceConfig, SenseVoiceRecognizer};
 use sherpa_rs::silero_vad::{SileroVad, SileroVadConfig};
 use std::fs::File;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc;
 use std::sync::Mutex;
 use std::time::Instant;
@@ -11,7 +11,8 @@ use std::{fs, time::Duration};
 use tauri::{Emitter, Manager, Window};
 use tokio::sync::oneshot;
 use wasapi::{initialize_mta, DeviceEnumerator, Direction};
-struct AppState(Mutex<Option<oneshot::Sender<()>>>);
+use std::sync::Arc;
+struct AppState{stop:Mutex<Option<oneshot::Sender<()>>>,running:Arc<AtomicBool>}
 
 
 
@@ -102,12 +103,14 @@ fn translate(http: &reqwest::blocking::Client, cfg: &Config, text: &str) -> Stri
 
 #[tauri::command]
 fn start_loopback(window: Window, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let (stop_tx, mut stop_rx) = oneshot::channel();
-    *state.0.lock().unwrap() = Some(stop_tx);
+    state.running.store(true, Ordering::SeqCst);
+    let running =Arc::clone(&state.running);
+ 
+   
 
     let win = window.clone();
     std::thread::spawn(move || {
-        let mut run = || -> Result<(), Box<dyn std::error::Error>> {
+        let  run = || -> Result<(), Box<dyn std::error::Error>> {
             let config_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("config.json");
             if File::open(&config_path).is_err() {
                 let _ = create_config();
@@ -170,13 +173,15 @@ fn start_loopback(window: Window, state: tauri::State<'_, AppState>) -> Result<(
             let (tx, rx) = mpsc::channel::<(u64, String)>();
             let win_t = win.clone();
             let cfg_t = cfg.clone();
+            let running_t =Arc::clone(&running);
             std::thread::spawn(move || {
                 let http = reqwest::blocking::Client::builder()
                     .no_proxy()
                     .timeout(Duration::from_secs(30))
                     .build()
                     .unwrap();
-                for (id, text) in rx {
+              while let Ok((id,text))=rx.recv() {
+                if !running_t.load(Ordering::SeqCst){break;}
                     let live: Config = fs::read_to_string(&config_path)
                         .ok()
                         .and_then(|s| serde_json::from_str(&s).ok())
@@ -192,8 +197,8 @@ fn start_loopback(window: Window, state: tauri::State<'_, AppState>) -> Result<(
             let mut speech_start: Option<Instant> = None;
             let max_speech = Duration::from_millis(vad_max);
             loop {
-                let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
-                if stop_rx.try_recv().is_ok() {
+              
+                if !running.load(Ordering::SeqCst) {
                     println!("正在停止");
                     client.stop_stream()?;
                     break Ok(());
@@ -231,6 +236,7 @@ fn start_loopback(window: Window, state: tauri::State<'_, AppState>) -> Result<(
                         vad.pop();
                         continue;
                     }
+                    let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
                     let text = sensevoice_seg(seg, &mut rec)?;
                     let _ = win.emit("subtitle", json!({"id": id, "text": text}));
                     vad.pop();
@@ -250,7 +256,8 @@ fn start_loopback(window: Window, state: tauri::State<'_, AppState>) -> Result<(
 
 #[tauri::command]
 fn stop_loopback(_window: Window, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    if let Some(stop_tx) = state.0.lock().unwrap().take() {
+   state.running.store(false, Ordering::SeqCst);
+    if let Some(stop_tx) = state.stop.lock().unwrap().take(){
         let _ = stop_tx.send(());
     }
 
@@ -289,7 +296,7 @@ fn asset(window: &Window, name: &str) -> std::path::PathBuf {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .manage(AppState(Mutex::new(None)))
+        .manage(AppState{stop:Mutex::new(None),running:Arc::new(AtomicBool::new(false))})
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
