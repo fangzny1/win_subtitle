@@ -7,9 +7,9 @@ via [sherpa-onnx-sense-voice](https://huggingface.co/csukuangfj/sherpa-onnx-sens
 
 # Settings / 设置说明
 
-Click the ⚙ button to open the settings panel. Settings are stored in `src-tauri/config.json` (auto-created with defaults on first run, so it is safe to delete).
+Click the ⚙ button to open the settings panel. Settings are stored in `config.json` right next to `win_subtitle.exe` (auto-created with defaults on first run, so it is safe to delete). During development (`cargo run`) it still reads `src-tauri/config.json`.
 
-点 ⚙ 齿轮按钮打开设置面板，配置保存在 `src-tauri/config.json`（首次运行自动生成默认文件，可随时删除重置）。
+点 ⚙ 齿轮按钮打开设置面板，配置保存在 **win_subtitle.exe 同目录** 的 `config.json`（首次运行自动生成默认文件，可随时删除重置）。开发环境（`cargo run`）仍读取 `src-tauri/config.json`。
 
 | Field 字段 | What it does 说明 |
 |---|---|

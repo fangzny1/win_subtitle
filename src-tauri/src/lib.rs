@@ -36,6 +36,27 @@ struct Config {
     target_lang: String,
 }
 
+// config.json 位置：优先 exe 旁边（发布版，用户机器上可读写）；
+// exe 旁没有就回退到开发目录（cargo run 时保持老工作流）；都没有则用 exe 旁（首跑自动生成）
+fn config_path() -> std::path::PathBuf {
+    let exe_dir = std::env::current_exe()
+        .ok()
+        .and_then(|e| e.parent().map(|d| d.to_path_buf()));
+    if let Some(dir) = &exe_dir {
+        let p = dir.join("config.json");
+        if p.exists() {
+            return p;
+        }
+    }
+    let dev = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("config.json");
+    if dev.exists() {
+        return dev;
+    }
+    exe_dir
+        .map(|d| d.join("config.json"))
+        .unwrap_or_else(|| std::path::PathBuf::from("config.json"))
+}
+
 fn create_config() -> Result<(), Box<dyn std::error::Error>> {
     let data = Config {
         vad_slience_ms: 800,
@@ -47,7 +68,7 @@ fn create_config() -> Result<(), Box<dyn std::error::Error>> {
         ai_model: "Gamma4-E4B-it".into(),
         target_lang: "zh".into(),
     };
-    let mut file = File::create_new("config.json")?;
+    let mut file = File::create_new(config_path())?;
     serde_json::to_writer_pretty(&mut file, &data)?;
     Ok(())
 }
@@ -111,7 +132,7 @@ fn start_loopback(window: Window, state: tauri::State<'_, AppState>) -> Result<(
     let win = window.clone();
     std::thread::spawn(move || {
         let  run = || -> Result<(), Box<dyn std::error::Error>> {
-            let config_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("config.json");
+            let config_path = config_path();
             if File::open(&config_path).is_err() {
                 let _ = create_config();
             }
@@ -265,13 +286,13 @@ fn stop_loopback(_window: Window, state: tauri::State<'_, AppState>) -> Result<(
 }
 #[tauri::command]
 fn get_config() -> Result<Config, String> {
-    let p = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("config.json");
+    let p = config_path();
     let s = fs::read_to_string(&p).map_err(|e| e.to_string())?;
     serde_json::from_str(&s).map_err(|e| e.to_string())
 }
 #[tauri::command]
 fn save_config(cfg: Config) -> Result<(), String> {
-    let p = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("config.json");
+    let p = config_path();
     let f = File::create(&p).map_err(|e| e.to_string())?;
     serde_json::to_writer_pretty(f, &cfg).map_err(|e| e.to_string())?;
     Ok(())
